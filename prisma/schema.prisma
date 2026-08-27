@@ -1,0 +1,131 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Neon is PostgreSQL. The source brief called it "Neon MySQL", but Neon does
+// not provide MySQL; this schema uses the supported Neon PostgreSQL connector.
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Platform {
+  TIKTOK
+  FACEBOOK
+  YOUTUBE
+}
+
+enum Frequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum InteractionAction {
+  FOLLOW
+  VIEW_VIDEO
+  LIKE_VIDEO
+  VIEW_POST
+  LIKE_POST
+  COMMENT_POST
+  SHARE_POST
+  HEALTH_CHECK
+  ACCOUNT_PROVISION
+}
+
+enum RunStatus {
+  QUEUED
+  RUNNING
+  SUCCESS
+  FAILED
+  SKIPPED
+}
+
+enum TargetType {
+  OWNED
+  PARTNER
+}
+
+model AdminUser {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String?
+  image         String?
+  emailVerified DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model AffiliateAccount {
+  email              String   @id @db.VarChar(320)
+  tiktokUserId       String?  @unique @map("tiktok_userid") @db.VarChar(191)
+  tiktokSecret       String?  @map("tiktok_pass") @db.Text
+  facebookUserId     String?  @unique @map("facebook_userid") @db.VarChar(191)
+  facebookSecret     String?  @map("facebook_pass") @db.Text
+  youtubeUserId      String?  @unique @map("youtube_userid") @db.VarChar(191)
+  youtubeSecret      String?  @map("youtube_pass") @db.Text
+  health             Json     @default("{}")
+  issues             Json     @default("{}") @map("issue")
+  channelStatus      Json     @default("{}") @map("status")
+  provisioningDue   Boolean  @default(true)
+  engagementDue     Boolean  @default(true)
+  healthRecheckDue  Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  interactions       InteractionLog[]
+
+  @@map("affiliate_accounts")
+}
+
+model Subscription {
+  userId       String      @map("userid") @db.VarChar(191)
+  channel      Platform
+  frequency    Frequency
+  timePeriod   Json?       @map("time_period")
+  status       Boolean     @default(true)
+  engagementDue Boolean    @default(true)
+  createdAt    DateTime    @default(now())
+  interactions InteractionLog[]
+
+  @@id([userId, channel])
+  @@index([status, frequency])
+  @@map("subscriptions")
+}
+
+model InteractionLog {
+  id             String            @id @default(cuid())
+  sourceEmail    String
+  targetUserId   String
+  targetType     TargetType
+  channel        Platform
+  action         InteractionAction
+  durationMs     Int?
+  status         RunStatus         @default(QUEUED)
+  message        String?
+  externalRef    String?
+  processedDate  DateTime          @db.Date
+  createdAt      DateTime          @default(now())
+  account        AffiliateAccount  @relation(fields: [sourceEmail], references: [email], onDelete: Cascade)
+  // Preserve the audit trail: a referenced subscription cannot be deleted
+  // while interaction history still points to it.
+  subscription   Subscription?     @relation(fields: [targetUserId, channel], references: [userId, channel], onDelete: Restrict)
+
+  @@index([createdAt, channel, action, status])
+  @@index([sourceEmail, processedDate])
+  @@map("interaction_logs")
+}
+
+model AutomationRun {
+  id          String    @id @default(cuid())
+  jobName     String
+  status      RunStatus @default(QUEUED)
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  processed   Int       @default(0)
+  failed      Int       @default(0)
+  metadata    Json?
+  createdAt   DateTime  @default(now())
+
+  @@index([jobName, createdAt])
+  @@map("automation_runs")
+}
