@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { Bell, CalendarDays, ChevronDown, CircleUserRound, History, LayoutDashboard, LogOut, Menu, Network, Search, ShieldCheck, UsersRound, X } from "lucide-react";
 import { useState } from "react";
+import { signOutAction } from "@/app/(dashboard)/actions";
 
 const navItems = [
   { href: "/accounts", label: "Tài khoản", caption: "Accounts", icon: UsersRound },
@@ -12,10 +14,28 @@ const navItems = [
   { href: "/system", label: "Hệ thống", caption: "Architecture", icon: LayoutDashboard },
 ];
 
-export function DashboardShell({ children }: { children: React.ReactNode }) {
+type DashboardUser = {
+  name?: string | null;
+  email?: string | null;
+  image?: string | null;
+};
+
+function getInitials(name: string) {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("") || "AU";
+}
+
+export function DashboardShell({ children, user }: { children: React.ReactNode; user: DashboardUser | null }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const active = navItems.find((item) => pathname.startsWith(item.href)) ?? navItems[0];
+  const displayName = user?.name?.trim() || user?.email?.split("@")[0] || "Admin User";
+  const displayEmail = user?.email || "admin@hopper.capital";
+  const initials = getInitials(displayName);
 
   return (
     <div className="app-shell">
@@ -39,9 +59,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           <span><b>Automation online</b><small>6 scheduled jobs</small></span>
         </div>
         <div className="sidebar-user">
-          <span className="avatar">AU</span>
-          <span><b>Admin User</b><small>admin@hopper.capital</small></span>
-          <Link href="/login" aria-label="Đăng xuất"><LogOut size={18} /></Link>
+          {user?.image ? <Image className="avatar avatar-image" src={user.image} alt="" width={34} height={34} /> : <span className="avatar">{initials}</span>}
+          <span><b>{displayName}</b><small>{displayEmail}</small></span>
+          <form action={signOutAction}><button className="logout-button" type="submit" aria-label="Đăng xuất"><LogOut size={18} /></button></form>
         </div>
       </aside>
       {menuOpen && <button className="scrim" onClick={() => setMenuOpen(false)} aria-label="Đóng menu" />}
@@ -58,7 +78,10 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             <button className="icon-button" aria-label="Lịch"><CalendarDays size={19} /></button>
             <button className="icon-button notification" aria-label="Thông báo"><Bell size={19} /><i /></button>
             <button className="icon-button" aria-label="Bảo mật"><ShieldCheck size={19} /></button>
-            <button className="profile-button"><CircleUserRound size={24} /><span>Admin</span><ChevronDown size={15} /></button>
+            <button className="profile-button" title={displayEmail} aria-label={`Tài khoản ${displayName}`}>
+              {user?.image ? <Image className="profile-avatar" src={user.image} alt="" width={26} height={26} /> : <span className="profile-avatar profile-avatar-fallback"><CircleUserRound size={24} /></span>}
+              <span>{displayName}</span><ChevronDown size={15} />
+            </button>
           </div>
         </header>
         <main className="main-content">{children}</main>
