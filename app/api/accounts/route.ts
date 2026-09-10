@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { apiError } from "@/lib/api";
+import { adminUnauthorized, apiError, requireAdmin } from "@/lib/api";
 import { serializeAccount } from "@/lib/serializers";
 
 const initialChannelState = { TikTok: { status: false }, Facebook: { status: false }, YouTube: { status: false } };
@@ -8,6 +8,7 @@ const initialHealth = { Gmail: { status: "Pending", message: "Awaiting verificat
 const initialIssues = { TikTok: { count: 0, message: "" }, Facebook: { count: 0, message: "" }, YouTube: { count: 0, message: "" } };
 
 export async function GET() {
+  if (!await requireAdmin()) return adminUnauthorized();
   try {
     const accounts = await prisma.affiliateAccount.findMany({ orderBy: { createdAt: "desc" } });
     return NextResponse.json(accounts.map(serializeAccount));
@@ -15,6 +16,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  if (!await requireAdmin()) return adminUnauthorized();
   try {
     const body = await request.json() as { email?: string };
     const email = body.email?.trim().toLowerCase();

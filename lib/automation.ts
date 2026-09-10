@@ -26,10 +26,21 @@ async function finishRun(id: string, status: RunStatus, processed: number, faile
 
 async function planProvisioning(runId: string) {
   const accounts = await prisma.affiliateAccount.findMany({ where: { provisioningDue: true }, take: 100, orderBy: { createdAt: "asc" } });
-  // External account creation must be implemented by an approved provider. The
-  // control plane records reviewable work; it never bypasses CAPTCHA or platform controls.
-  await Promise.all(accounts.map((account) => prisma.interactionLog.create({ data: { sourceEmail: account.email, targetUserId: account.email, targetType: TargetType.OWNED, channel: Platform.YOUTUBE, action: InteractionAction.ACCOUNT_PROVISION, status: RunStatus.QUEUED, message: `Operator/provider handoff required (run ${runId})`, processedDate: new Date() } })));
-  return { processed: accounts.length, metadata: { mode: "approval-gated", order: ["YOUTUBE", "FACEBOOK", "TIKTOK"], delaySeconds: 60 } };
+  const today = new Date();
+  const channels = [Platform.YOUTUBE, Platform.FACEBOOK, Platform.TIKTOK];
+  const reviews = accounts.flatMap((account) => channels.map((channel) => ({
+    sourceEmail: account.email,
+    targetUserId: account.email,
+    targetType: TargetType.OWNED,
+    channel,
+    action: InteractionAction.ACCOUNT_PROVISION,
+    status: RunStatus.QUEUED,
+    message: `Approval required before provider handoff (run ${runId})`,
+    dedupeKey: `provision:${account.email}:${channel}:${today.toISOString().slice(0, 10)}`,
+    processedDate: today,
+  })));
+  const queued = reviews.length ? await prisma.interactionLog.createMany({ data: reviews, skipDuplicates: true }) : { count: 0 };
+  return { processed: queued.count, metadata: { mode: "approval-gated", candidates: accounts.length, queued: queued.count, order: ["YOUTUBE", "FACEBOOK", "TIKTOK"] } };
 }
 
 async function planOnboarding() {

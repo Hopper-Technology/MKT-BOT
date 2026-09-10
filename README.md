@@ -7,11 +7,11 @@ Affiliate operations console for Hopper SE. It combines a clean modern dashboard
 - Responsive Next.js App Router admin UI in Vietnamese/English
 - Account dashboard with health/issue summaries, search, filters, CSV import (5 MB max), add/edit, per-channel toggles, empty states, and pagination
 - Subscription network with composite identity (`userId + channel`), scheduling, filters, create flow, and status controls
-- Interaction history with filters, pagination, error detail, and CSV export
-- System architecture and cron control-plane view
+- Interaction history with filters, pagination, error detail, CSV, and dependency-free Excel-compatible export
+- System architecture, live automation-run history, and safe dry-run control-plane view
 - Google Workspace SSO wiring via Auth.js with optional domain restriction
 - Prisma data model for affiliate accounts, partners, interactions, and automation runs
-- Vercel cron endpoints with authorization, timezone cutoffs, execution records, dry-run planning, and Brevo reporting
+- Protected Vercel cron endpoints with authorization, execution records, dry-run planning, and Brevo reporting
 - Live Neon persistence through the account, subscription, and history REST endpoints
 
 ## Database note
@@ -29,11 +29,14 @@ The control plane intentionally does **not** implement CAPTCHA bypass, bulk fake
 3. Generate the client and migrate: `npm run db:generate`, then `npm run db:migrate`.
 4. Start: `npm run dev` and open `http://localhost:3000`.
 
-After the Neon migration is applied, use **Open Neon workspace** on `/login`. UI changes are persisted through the REST API to Neon.
 
 ## Cron deployment
 
-`vercel.json` configures the supplied schedules in UTC while every endpoint enforces Asia/Bangkok operating windows. Set `CRON_SECRET`; Vercel sends it as a Bearer token. Jobs remain dry-run until an approved provider adapter is configured and `AUTOMATION_DRY_RUN=false` is explicitly set.
+`vercel.json` contains only daily or weekly review jobs so it is compatible with the Vercel Hobby cron limit. Schedules are UTC; the dashboard and run metadata use Asia/Bangkok.
+
+Set `CRON_SECRET` in Vercel. Vercel sends it as a Bearer token. Keep `AUTOMATION_DRY_RUN=true`; the supplied jobs only create auditable review records and do not make social-network actions.
+
+Run `npx prisma migrate deploy` during deployment to apply committed Neon migrations.
 
 ## Security choices
 

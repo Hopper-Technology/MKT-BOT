@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { apiError } from "@/lib/api";
+import { adminUnauthorized, apiError, requireAdmin } from "@/lib/api";
 import { prisma } from "@/lib/db";
 import { serializeAccount } from "@/lib/serializers";
 import type { AffiliateAccount, Platform } from "@/lib/types";
@@ -7,6 +7,7 @@ import type { AffiliateAccount, Platform } from "@/lib/types";
 const platforms: Platform[] = ["TikTok", "Facebook", "YouTube"];
 
 export async function PATCH(request: Request, context: { params: Promise<{ email: string }> }) {
+  if (!await requireAdmin()) return adminUnauthorized();
   try {
     const { email } = await context.params;
     const body = await request.json() as AffiliateAccount;

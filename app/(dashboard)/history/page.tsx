@@ -25,8 +25,17 @@ export default function HistoryPage() {
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
     const link = document.createElement("a"); link.href = url; link.download = `mkt-bot-history-${new Date().toISOString().slice(0, 10)}.csv`; link.click(); URL.revokeObjectURL(url);
   };
+  const exportExcel = () => {
+    const header = ["time", "source", "target", "channel", "action", "duration", "status", "message"];
+    const escape = (value: unknown) => String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const rows = [header, ...filtered.map((item) => header.map((key) => item[key as keyof typeof item]))];
+    const xml = `<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"><Worksheet ss:Name="History" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Table>${rows.map((row) => `<Row>${row.map((cell) => `<Cell><Data ss:Type="String">${escape(cell)}</Data></Cell>`).join("")}</Row>`).join("")}</Table></Worksheet></Workbook>`;
+    const url = URL.createObjectURL(new Blob([xml], { type: "application/vnd.ms-excel" }));
+    const link = document.createElement("a"); link.href = url; link.download = `mkt-bot-history-${new Date().toISOString().slice(0, 10)}.xml`; link.click(); URL.revokeObjectURL(url);
+  };
   return <>
     <section className="page-heading"><div><span className="kicker">AUDIT / INTERACTIONS</span><h1>Interaction History</h1><p>Lịch sử tương tác chéo, trạng thái và thời lượng thực thi.</p></div><button className="button secondary" onClick={exportCsv}><Download size={17} /> Export CSV</button></section>
+    <div className="filter-panel"><span className="muted">Spreadsheet export (opens in Excel)</span><button className="button secondary" onClick={exportExcel}><Download size={17} /> Export Excel</button></div>
     {storeError && <div className="inline-notice error-notice">{storeError}<button onClick={() => void refresh()}>Thử lại</button></div>}
     {loading && <div className="loading-line"><span /> Đang tải dữ liệu từ Neon…</div>}
     <section className="filter-panel"><label className="search-field wide"><Search size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm user, target hoặc action…" /></label><label><span>Channel</span><select value={channel} onChange={(event) => setChannel(event.target.value)}><option>All channels</option><option>TikTok</option><option>Facebook</option><option>YouTube</option></select></label><label><span>Action</span><select value={action} onChange={(event) => setAction(event.target.value)}><option>All actions</option>{actions.map((item) => <option key={item}>{item}</option>)}</select></label><label><span>Status</span><select value={status} onChange={(event) => setStatus(event.target.value)}><option>All status</option><option>Success</option><option>Failed</option></select></label><button className="reset-button" onClick={reset}><FilterX size={16} /> Reset</button></section>

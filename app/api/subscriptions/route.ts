@@ -1,6 +1,6 @@
 import { Frequency, Platform, Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
-import { apiError } from "@/lib/api";
+import { adminUnauthorized, apiError, requireAdmin } from "@/lib/api";
 import { prisma } from "@/lib/db";
 import { serializeSubscription } from "@/lib/serializers";
 
@@ -8,6 +8,7 @@ const frequencyMap = { "Once a day": Frequency.DAILY, "Once a week": Frequency.W
 const platformMap = { TikTok: Platform.TIKTOK, Facebook: Platform.FACEBOOK, YouTube: Platform.YOUTUBE } as const;
 
 export async function GET() {
+  if (!await requireAdmin()) return adminUnauthorized();
   try {
     const items = await prisma.subscription.findMany({ orderBy: { createdAt: "desc" } });
     return NextResponse.json(items.map(serializeSubscription));
@@ -15,6 +16,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  if (!await requireAdmin()) return adminUnauthorized();
   try {
     const body = await request.json() as { userId?: string; channel?: keyof typeof platformMap; frequency?: keyof typeof frequencyMap; timePeriod?: string };
     if (!body.userId || !body.channel || !body.frequency) return NextResponse.json({ error: "userId, channel and frequency are required" }, { status: 400 });

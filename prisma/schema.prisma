@@ -85,8 +85,6 @@ model Subscription {
   status       Boolean     @default(true)
   engagementDue Boolean    @default(true)
   createdAt    DateTime    @default(now())
-  interactions InteractionLog[]
-
   @@id([userId, channel])
   @@index([status, frequency])
   @@map("subscriptions")
@@ -103,13 +101,10 @@ model InteractionLog {
   status         RunStatus         @default(QUEUED)
   message        String?
   externalRef    String?
+  dedupeKey      String?           @unique @map("dedupe_key")
   processedDate  DateTime          @db.Date
   createdAt      DateTime          @default(now())
   account        AffiliateAccount  @relation(fields: [sourceEmail], references: [email], onDelete: Cascade)
-  // Preserve the audit trail: a referenced subscription cannot be deleted
-  // while interaction history still points to it.
-  subscription   Subscription?     @relation(fields: [targetUserId, channel], references: [userId, channel], onDelete: Restrict)
-
   @@index([createdAt, channel, action, status])
   @@index([sourceEmail, processedDate])
   @@map("interaction_logs")
